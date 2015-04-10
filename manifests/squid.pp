@@ -38,12 +38,15 @@
 # Copyright 2014 Alessandro De Salvo
 #
 class frontier::squid (
-  $customize_file     = undef,
-  $customize_template = undef,
-  $cache_dir          = $frontier::params::frontier_cache_dir,
-  $max_access_log     = undef,
-  $install_resource   = false,
-  $resource_path      = $frontier::params::resource_agents_path
+  $customize_file        = undef,
+  $customize_template    = undef,
+  $customize_hashes      = false,
+  $custom_options        = [],
+  $custom_options_params = [],
+  $cache_dir             = $frontier::params::frontier_cache_dir,
+  $max_access_log        = undef,
+  $install_resource      = false,
+  $resource_path         = $frontier::params::resource_agents_path
   )
   inherits params {
     
@@ -66,6 +69,29 @@ class frontier::squid (
         owner   => squid,
         group   => squid,
         mode    => 0755,
+        require => Package[$frontier::params::frontier_packages],
+        notify  => Service[$frontier::params::frontier_service]
+      }
+    }
+
+
+    if ($customize_hashes) {      
+      file {$frontier::params::frontier_customize:
+        ensure  => file,
+        owner   => squid,
+        group   => squid,
+        mode    => 0755,
+        content => inline_template('#!/bin/bash
+awk --file `dirname $0`/customhelps.awk --source \'{
+<% @custom_options.each do |option| -%>
+setoption("<%= option[\'name\'] %>", "<%= option[\'value\'] %>")
+<% end -%>
+<% @custom_options_params.each do |option| -%>
+setoptionparameter("<%= option[\'name\'] %>", <%= option[\'num\'] %>, "<%= option[\'value\'] %>")
+<% end -%>          
+print
+}\'
+'),
         require => Package[$frontier::params::frontier_packages],
         notify  => Service[$frontier::params::frontier_service]
       }
